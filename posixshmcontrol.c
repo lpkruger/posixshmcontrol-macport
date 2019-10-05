@@ -1,3 +1,8 @@
+#if 0
+# run this C file in a shell to compile it lol
+exec cc -O posixshmcontrol.c -o posixshmcontrol
+#endif
+
 /*-
  * Copyright (c) 2019 The FreeBSD Foundation
  *
@@ -26,9 +31,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/param.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -37,13 +39,19 @@ __FBSDID("$FreeBSD$");
 #include <err.h>
 #include <fcntl.h>
 #include <grp.h>
-#include <libutil.h>
 #include <pwd.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#if HAS_LIBUTIL
+#else
+// FreeBSD compat stuff
+#define	nitems(x)    (sizeof((x)) / sizeof((x)[0]))
+#endif
+
 
 static void
 usage(void)
@@ -157,6 +165,7 @@ shm_decode_mode(mode_t m, char *str)
 	str[i] = '\0';
 }
 
+#if HAS_KINFO
 static int
 list_shm(int argc, char **argv)
 {
@@ -254,6 +263,14 @@ out:
 	free(buf);
 	return (ret);
 }
+#else
+static int
+list_shm(int argc, char **argv)
+{
+  errx(1, "list_shm not supported on MacOS");
+  return 1;
+}
+#endif // HAS_KINFO
 
 static int
 read_one_shm(const char *path)
@@ -335,20 +352,25 @@ stat_one_shm(const char *path, bool hsize, bool uname)
 			printf("gid\t%d\n", st.st_gid);
 		}
 		if (hsize) {
+#if HAS_LIBUTIL
 			humanize_number(sizebuf, sizeof(sizebuf),
 			    st.st_size, "", HN_AUTOSCALE, HN_NOSPACE);
 			printf("size\t%s\n", sizebuf);
+#else
+// wont get the nice humanized formatting
+			printf("size\t%jd\n", (uintmax_t)st.st_size);
+#endif
 		} else {
 			printf("size\t%jd\n", (uintmax_t)st.st_size);
 		}
-		printf("atime\t%ld.%09ld\n", (long)st.st_atime,
-		    (long)st.st_atim.tv_nsec);
-		printf("mtime\t%ld.%09ld\n", (long)st.st_mtime,
-		    (long)st.st_mtim.tv_nsec);
-		printf("ctime\t%ld.%09ld\n", (long)st.st_ctime,
-		    (long)st.st_ctim.tv_nsec);
-		printf("birth\t%ld.%09ld\n", (long)st.st_birthtim.tv_sec,
-		    (long)st.st_birthtim.tv_nsec);
+		printf("atime\t%ld.%09ld\n", (long)st.st_atimespec.tv_sec,
+		    (long)st.st_atimespec.tv_nsec);
+		printf("mtime\t%ld.%09ld\n", (long)st.st_mtimespec.tv_sec,
+		    (long)st.st_mtimespec.tv_nsec);
+		printf("ctime\t%ld.%09ld\n", (long)st.st_ctimespec.tv_sec,
+		    (long)st.st_ctimespec.tv_nsec);
+		printf("birth\t%ld.%09ld\n", (long)st.st_birthtimespec.tv_sec,
+		    (long)st.st_birthtimespec.tv_nsec);
 	}
 	close(fd);
 	return (ret);
@@ -413,13 +435,21 @@ truncate_shm(int argc, char **argv)
 {
 	uint64_t newsize;
 	int c, i, ret, ret1;
+	char *endptr;
 
 	newsize = 0;
 	while ((c = getopt(argc, argv, "s:")) != -1) {
 		switch (c) {
 		case 's':
+#if HAS_LIBUTIL
 			if (expand_number(optarg, &newsize) == -1)
 				err(1, "size:");
+#else
+// wont get the nice humanized formatting
+			newsize = strtol(optarg, &endptr, 10);
+			if (endptr == optarg || *endptr != '\0')
+				err(1, "size:");
+#endif
 			break;
 		case '?':
 		default:
