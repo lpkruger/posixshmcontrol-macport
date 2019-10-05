@@ -1,6 +1,7 @@
 #if 0
 # run this C file in a shell to compile it lol
-exec cc -O posixshmcontrol.c -o posixshmcontrol
+workaround="-DASSUME_OLD_LIBUTIL=1 -lutil"
+exec cc -O posixshmcontrol.c -o posixshmcontrol $workaround
 #endif
 
 /*-
@@ -46,9 +47,27 @@ exec cc -O posixshmcontrol.c -o posixshmcontrol
 #include <string.h>
 #include <unistd.h>
 
-#if HAS_LIBUTIL
+#if __has_include(<libutil.h>)
+#pragma message "found libutil.h"
+#include <libutil.h>
+#define HAS_HUMANIZE_NUMBER 1
+#define HAS_EXPAND_NUMBER 1
+
+#elif ASSUME_OLD_LIBUTIL
+// Mojave includes /usr/lib/libutil.dylib but I can't find any headers.
+// https://opensource.apple.com/source/libutil/libutil-51.200.4/
+// It includes humanize_number though so try using it
+#pragma message "Assuming libutil library without header"
+#define	nitems(x)    (sizeof((x)) / sizeof((x)[0]))
+#define	HN_NOSPACE		0x02
+#define	HN_AUTOSCALE		0x20
+int	humanize_number(char *_buf, size_t _len, int64_t _number,
+	    const char *_suffix, int _scale, int _flags);
+#define HAS_HUMANIZE_NUMBER 1
+
 #else
-// FreeBSD compat stuff
+#pragma message "did not find libutil.h"
+// need nitems no matter what but it's simple
 #define	nitems(x)    (sizeof((x)) / sizeof((x)[0]))
 #endif
 
@@ -352,7 +371,7 @@ stat_one_shm(const char *path, bool hsize, bool uname)
 			printf("gid\t%d\n", st.st_gid);
 		}
 		if (hsize) {
-#if HAS_LIBUTIL
+#if HAS_HUMANIZE_NUMBER
 			humanize_number(sizebuf, sizeof(sizebuf),
 			    st.st_size, "", HN_AUTOSCALE, HN_NOSPACE);
 			printf("size\t%s\n", sizebuf);
@@ -441,7 +460,7 @@ truncate_shm(int argc, char **argv)
 	while ((c = getopt(argc, argv, "s:")) != -1) {
 		switch (c) {
 		case 's':
-#if HAS_LIBUTIL
+#if HAS_EXPAND_NUMBER
 			if (expand_number(optarg, &newsize) == -1)
 				err(1, "size:");
 #else

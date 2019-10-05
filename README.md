@@ -7,4 +7,4 @@ Problems:
   - The source code for the Mac Kernel (XNU) Posix SHM shows there is no possible way to export the hashtable of segment names without modifying the kernel:
   - https://github.com/apple/darwin-xnu/blob/master/bsd/kern/posix_shm.c
 - The same kernel source code also shows that reading and writing won't work.  The only thing you can is mmap it into the address space.  As a TODO this utility could be modified to support reading and writing through that mechanism.
-- disabled humanized formatting of numbers (ie appending K, M, G etc) because I couldn't immediately find stdutil.h anywhere.  Although the dylib exists so maybe it can be made to work.
+- (half fixed by manually declaring the function in the dylib)  disabled humanized formatting of numbers (ie appending K, M, G etc) because I couldn't immediately find stdutil.h anywhere.  Although the dylib exists so maybe it can be made to work.  Update: the dylib includes humanize_number (for formatting) but not expand_number (for parsing).  So I half fixed this.
