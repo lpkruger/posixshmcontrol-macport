@@ -2,6 +2,9 @@
 - Ripped from https://github.com/freebsd/freebsd/tree/master/usr.bin/posixshmcontrol
 - tested on Mojave and built with XCode 10.3
 
+What works:
+- create, truncate, stat, and unlink
+
 Problems:
 - The ls subcommand doesn't work and can't work because the Mac kernel doesn't support it.
   - The source code for the Mac Kernel (XNU) Posix SHM shows there is no possible way to export the hashtable of segment names without modifying the kernel:
